@@ -459,7 +459,7 @@
         const GOOGLE_SCRIPT_URL =
             'https://script.google.com/macros/s/AKfycbxMdA74aQ16yAZwpxdN0wk-SH_7MuMWUCRBGUqSD94XI-2TivivjU5FNjuUpPS1ShUyUA/exec';
 
-        const APP_VERSION = '15';
+        const APP_VERSION = '17';
         const IS_FEATURE = /\/feature\//.test(location.pathname);
         const MAIN_SITE_URL = 'https://mrlawrencew.github.io/Inequality/';
         const PROFILE_KEY = 'hkdse_ineq_profile';
@@ -1937,6 +1937,7 @@
                 showToast(`Part ${currentSets[currentSetIndex][pi].partLabel} correct! Awesome job.`, "success");
 
                 const set = currentSets[currentSetIndex];
+                removeErrorLogPart(set[pi], currentLevel, set);
                                 animateCorrect();
                                 set[pi].done = true;
                 rebuildL3Block(pi);
@@ -2005,6 +2006,7 @@
 
             if (isCorrect) {
                 levelStats[`level${currentLevel}`].correct++;
+                removeErrorLogPart(currentQuestions[currentQuestionIndex], currentLevel, null);
                                 animateCorrect();
                                 showToast("Correct! Awesome job.", "success");
                 currentQuestionIndex++;
@@ -2123,6 +2125,31 @@
 
         function errorLogCardMarks(entry) {
             return errorLogWrongIdxs(entry).length * errorLogRefund(entry.level);
+        }
+
+        // A correct in-game retry clears the mistake from the Error Log Book.
+        // The lost heart/mark is NOT refunded; only an Error Log Book redo refunds.
+        function removeErrorLogPart(q, level, setParts) {
+            if (!q) return;
+            if (Array.isArray(setParts) && setParts.length > 0 && q.setId) {
+                const entry = errorLog.find(e => e.setId === q.setId && e.level === level);
+                if (!entry) return;
+                const pi = (q.partIdx !== undefined && q.partIdx !== null) ? q.partIdx : 0;
+                entry.wrongIdxs = errorLogWrongIdxs(entry).filter(i => i !== pi);
+                if (entry.wrongIdxs.length === 0) {
+                    errorLog = errorLog.filter(e => e.id !== entry.id);
+                }
+                saveErrorLog();
+                return;
+            }
+            const part = snapshotErrorPart(q);
+            const key = level + '|' + part.qHtml + '|' + part.answerStr;
+            const before = errorLog.length;
+            errorLog = errorLog.filter(e => {
+                const p0 = e.parts && e.parts[0];
+                return !(p0 && (e.level + '|' + p0.qHtml + '|' + p0.answerStr) === key);
+            });
+            if (errorLog.length !== before) saveErrorLog();
         }
 
         function recordErrorLog(q, level, setParts) {
